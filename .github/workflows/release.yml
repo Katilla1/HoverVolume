@@ -25,6 +25,7 @@ jobs:
           name: HoverVolume-macOS
           path: |
             dist/HoverVolume-macOS.zip
+            dist/HoverVolume-macOS.dmg
             dist/SHA256SUMS.txt
 
       - name: Attach assets to GitHub release
@@ -33,4 +34,5 @@ jobs:
         with:
           files: |
             dist/HoverVolume-macOS.zip
+            dist/HoverVolume-macOS.dmg
             dist/SHA256SUMS.txt

@@ -28,7 +28,9 @@ If you do not see the icon, macOS may have placed it in the menu bar overflow ar
 
 ## Install
 
-Download the latest `HoverVolume-macOS.zip` from the GitHub Releases page, unzip it, then drag `HoverVolume.app` into `Applications`.
+Download the latest `HoverVolume-macOS.dmg` from the GitHub Releases page, open it, then drag `HoverVolume.app` into `Applications`.
+
+If you prefer, you can also download `HoverVolume-macOS.zip`, unzip it, and move the app manually.
 
 Use the Releases page here:
 
