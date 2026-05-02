@@ -2,9 +2,9 @@
 
 Small macOS menu bar app that lets you hover the speaker icon and scroll to change system volume.
 
-## Why
+## What It Does
 
-macOS does not let third-party apps attach behavior to Apple's built-in Control Center or volume icon. HoverVolume adds its own compact menu bar speaker with a small animated volume bar under it.
+HoverVolume adds its own compact speaker icon to the macOS menu bar. Move your pointer over it and scroll to raise or lower system volume. A thin animated bar under the icon shows the current level.
 
 ## Features
 
@@ -15,7 +15,31 @@ macOS does not let third-party apps attach behavior to Apple's built-in Control 
 - Falls back to channel volume controls on devices that do not expose virtual main volume
 - No dependencies
 
-## Build
+## How To Use
+
+1. Launch `HoverVolume.app`.
+2. Find the speaker icon in the top-right menu bar.
+3. Hover your mouse or trackpad pointer over the icon.
+4. Scroll up to increase volume.
+5. Scroll down to decrease volume.
+6. Click the icon to see the current volume and quit the app.
+
+If you do not see the icon, macOS may have placed it in the menu bar overflow area because there are too many visible menu bar items.
+
+## Install
+
+Download the latest `HoverVolume-macOS.zip` from the GitHub Releases page, unzip it, then drag `HoverVolume.app` into `Applications`.
+
+On first launch, macOS may ask you to confirm that you want to open it.
+
+## Compatibility
+
+- macOS 13 or later
+- MacBook trackpads
+- Standard scroll-wheel mice
+- Built-in speakers, many Bluetooth outputs, and many external audio devices
+
+## Build From Source
 
 ```bash
 chmod +x build.sh
@@ -23,53 +47,18 @@ chmod +x build.sh
 open HoverVolume.app
 ```
 
-## Install
-
-For local install:
+Or install it into `~/Applications` with:
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-This installs the app into `~/Applications/HoverVolume.app` and launches it.
-
-## Release A Zip
-
-```bash
-chmod +x release.sh
-./release.sh
-```
-
-This creates `dist/HoverVolume-macOS.zip` plus a `dist/SHA256SUMS.txt` checksum file.
-
-## Share On GitHub
-
-1. Push the repo to GitHub.
-2. Create a release tag such as `v1.0.0`.
-3. Let GitHub Actions build and attach the zip to the release.
-4. Share the release URL.
-
-People can then download the zip, drag `HoverVolume.app` into Applications, and run it.
-
 ## Gatekeeper
 
 Because this project currently uses ad-hoc signing, some users may need to right-click the app and choose `Open` the first time.
 
-For the smoothest public install experience, the real upgrade is:
-
-- Apple Developer ID signing
-- Apple notarization
-
-## Files
-
-- `main.swift`: app logic, UI, and CoreAudio integration
-- `build.sh`: one-step build script
-- `install.sh`: installs into `~/Applications`
-- `release.sh`: builds a portable zip for sharing
-- `Info.plist`: app bundle metadata
-
 ## Notes
 
+- HoverVolume uses its own menu bar icon. It cannot attach this behavior to Apple's built-in Control Center volume control.
 - The built app bundle and local build cache are ignored by Git.
-- Click the icon to see the current volume and quit the app.
