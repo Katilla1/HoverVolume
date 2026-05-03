@@ -55,6 +55,13 @@ chmod +x build.sh
 open HoverVolume.app
 ```
 
+Run the lightweight logic tests with:
+
+```bash
+chmod +x test.sh
+./test.sh
+```
+
 Or install it into `~/Applications` with:
 
 ```bash

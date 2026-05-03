@@ -16,7 +16,8 @@ jobs:
 
       - name: Build release zip
         run: |
-          chmod +x build.sh release.sh
+          chmod +x build.sh release.sh test.sh
+          ./test.sh
           ./release.sh
 
       - name: Upload workflow artifact

@@ -199,9 +199,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         static let barHeight = 3.0
         static let barYOffset = 2.5
         static let animationDuration = 0.14
-        static let wheelStep: Float32 = 0.05
-        static let trackpadDeltaScale: Float32 = 0.004
-        static let maxTrackpadDeltaPerEvent: Float32 = 0.08
         static let fillColor = NSColor.systemGreen
     }
 
@@ -285,15 +282,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func volumeDelta(for event: NSEvent) -> Float32? {
-        guard abs(event.scrollingDeltaY) >= 0.01 else { return nil }
-        guard event.momentumPhase.isEmpty else { return nil }
-
-        if event.hasPreciseScrollingDeltas {
-            let scaled = Float32(event.scrollingDeltaY) * UI.trackpadDeltaScale
-            return max(-UI.maxTrackpadDeltaPerEvent, min(UI.maxTrackpadDeltaPerEvent, scaled))
-        }
-
-        return event.scrollingDeltaY > 0 ? UI.wheelStep : -UI.wheelStep
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaY: event.scrollingDeltaY,
+            hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
+            momentumPhaseIsEmpty: event.momentumPhase.isEmpty
+        )
     }
 
     private func isMouseOverStatusItem() -> Bool {
@@ -385,19 +378,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func speakerImage(for volume: CGFloat) -> NSImage? {
-        let symbolName: String
-
-        switch volume {
-        case 0:
-            symbolName = "speaker.slash.fill"
-        case 0..<0.34:
-            symbolName = "speaker.fill"
-        case 0.34..<0.67:
-            symbolName = "speaker.wave.2.fill"
-        default:
-            symbolName = "speaker.wave.3.fill"
-        }
-
+        let symbolName = HoverVolumeLogic.speakerSymbolName(for: volume)
         let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Volume")
         image?.isTemplate = true
         return image

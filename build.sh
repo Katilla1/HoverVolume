@@ -18,6 +18,7 @@ swiftc \
     -framework AppKit \
     -framework AudioToolbox \
     -framework CoreAudio \
+    "$ROOT/HoverVolumeLogic.swift" \
     "$ROOT/main.swift" \
     -o "$BINARY"
 
