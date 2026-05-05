@@ -1,7 +1,181 @@
 import AppKit
 import AudioToolbox
 import CoreAudio
+import IOKit.hidsystem
 import QuartzCore
+
+enum MediaControlCommand {
+    case previous
+    case playPause
+    case next
+
+    var symbolName: String {
+        switch self {
+        case .previous:
+            return "backward.fill"
+        case .playPause:
+            return "playpause.fill"
+        case .next:
+            return "forward.fill"
+        }
+    }
+
+    var toolTip: String {
+        switch self {
+        case .previous:
+            return "Previous track"
+        case .playPause:
+            return "Play or pause"
+        case .next:
+            return "Next track"
+        }
+    }
+
+    var mediaKey: Int32 {
+        switch self {
+        case .previous:
+            return NX_KEYTYPE_REWIND
+        case .playPause:
+            return NX_KEYTYPE_PLAY
+        case .next:
+            return NX_KEYTYPE_FAST
+        }
+    }
+}
+
+final class MediaControlsViewController: NSViewController {
+    var onToggleMute: (() -> Void)?
+    var onMediaCommand: ((MediaControlCommand) -> Void)?
+    var onCheckForUpdates: (() -> Void)?
+    var onQuit: (() -> Void)?
+
+    private let volumeLabel = NSTextField(labelWithString: "Volume 0%")
+    private let hintLabel = NSTextField(labelWithString: "Scroll on the icon or here to change volume")
+    private let muteButton = NSButton(title: "Mute", target: nil, action: nil)
+    private let updatesButton = NSButton(title: "Check for Updates", target: nil, action: nil)
+    private let quitButton = NSButton(title: "Quit HoverVolume", target: nil, action: nil)
+
+    override func loadView() {
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 232, height: 148))
+        view.translatesAutoresizingMaskIntoConstraints = false
+
+        volumeLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        volumeLabel.alignment = .center
+
+        hintLabel.font = .systemFont(ofSize: 11)
+        hintLabel.textColor = .secondaryLabelColor
+        hintLabel.alignment = .center
+        hintLabel.lineBreakMode = .byWordWrapping
+        hintLabel.maximumNumberOfLines = 2
+
+        muteButton.bezelStyle = .rounded
+        muteButton.controlSize = .small
+        muteButton.target = self
+        muteButton.action = #selector(toggleMute)
+        muteButton.imagePosition = .imageLeading
+
+        updatesButton.bezelStyle = .rounded
+        updatesButton.controlSize = .small
+        updatesButton.target = self
+        updatesButton.action = #selector(handleCheckForUpdates)
+
+        quitButton.bezelStyle = .inline
+        quitButton.controlSize = .small
+        quitButton.target = self
+        quitButton.action = #selector(handleQuit)
+
+        let previousButton = makeMediaButton(for: .previous)
+        let playPauseButton = makeMediaButton(for: .playPause)
+        let nextButton = makeMediaButton(for: .next)
+
+        let mediaRow = NSStackView(views: [previousButton, playPauseButton, nextButton])
+        mediaRow.orientation = .horizontal
+        mediaRow.alignment = .centerY
+        mediaRow.distribution = .fillEqually
+        mediaRow.spacing = 8
+
+        let stack = NSStackView(views: [volumeLabel, muteButton, mediaRow, hintLabel, updatesButton, quitButton])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 14),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
+            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -14),
+            mediaRow.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            muteButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96)
+        ])
+    }
+
+    func update(volume: CGFloat, isMuted: Bool) {
+        let percent = Int(round(volume * 100))
+        volumeLabel.stringValue = "Volume \(percent)%"
+        muteButton.title = isMuted ? "Unmute" : "Mute"
+        muteButton.image = NSImage(
+            systemSymbolName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+            accessibilityDescription: muteButton.title
+        )
+    }
+
+    private func makeMediaButton(for command: MediaControlCommand) -> NSButton {
+        let button = NSButton(image: NSImage(
+            systemSymbolName: command.symbolName,
+            accessibilityDescription: command.toolTip
+        ) ?? NSImage(), target: self, action: #selector(handleMediaButton(_:)))
+        button.bezelStyle = .texturedRounded
+        button.controlSize = .small
+        button.imagePosition = .imageOnly
+        button.tag = mediaTag(for: command)
+        button.toolTip = command.toolTip
+        return button
+    }
+
+    @objc private func toggleMute() {
+        onToggleMute?()
+    }
+
+    @objc private func handleMediaButton(_ sender: NSButton) {
+        guard let command = mediaCommand(for: sender.tag) else { return }
+        onMediaCommand?(command)
+    }
+
+    @objc private func handleCheckForUpdates() {
+        onCheckForUpdates?()
+    }
+
+    @objc private func handleQuit() {
+        onQuit?()
+    }
+
+    private func mediaTag(for command: MediaControlCommand) -> Int {
+        switch command {
+        case .previous:
+            return 1
+        case .playPause:
+            return 2
+        case .next:
+            return 3
+        }
+    }
+
+    private func mediaCommand(for tag: Int) -> MediaControlCommand? {
+        switch tag {
+        case 1:
+            return .previous
+        case 2:
+            return .playPause
+        case 3:
+            return .next
+        default:
+            return nil
+        }
+    }
+}
 
 final class VolumeController {
     private let callbackQueue = DispatchQueue.main
@@ -38,7 +212,25 @@ final class VolumeController {
 
     func changeVolume(by delta: Float32) {
         guard abs(delta) >= 0.001, let current = volume else { return }
-        setVolume(current + delta)
+        setVolume(to: current + delta)
+    }
+
+    func setVolume(to newValue: Float32) {
+        guard let deviceID = observedDeviceID ?? defaultOutputDeviceID() else { return }
+
+        var value = min(max(newValue, 0), 1)
+        let addresses = observedVolumeAddresses.isEmpty ? volumeAddresses(for: deviceID) : observedVolumeAddresses
+
+        for var address in addresses {
+            AudioObjectSetPropertyData(
+                deviceID,
+                &address,
+                0,
+                nil,
+                UInt32(MemoryLayout.size(ofValue: value)),
+                &value
+            )
+        }
     }
 
     var volume: Float32? {
@@ -65,17 +257,6 @@ final class VolumeController {
         onChange?()
     }
 
-    private func setVolume(_ newValue: Float32) {
-        guard let deviceID = observedDeviceID ?? defaultOutputDeviceID() else { return }
-
-        var value = min(max(newValue, 0), 1)
-        let addresses = observedVolumeAddresses.isEmpty ? volumeAddresses(for: deviceID) : observedVolumeAddresses
-
-        for var address in addresses {
-            AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout.size(ofValue: value)), &value)
-        }
-    }
-
     private func readVolume(from deviceID: AudioDeviceID) -> Float32? {
         let addresses = observedVolumeAddresses.isEmpty ? volumeAddresses(for: deviceID) : observedVolumeAddresses
         guard !addresses.isEmpty else { return nil }
@@ -99,7 +280,14 @@ final class VolumeController {
         var deviceID = AudioDeviceID.zero
         var size = UInt32(MemoryLayout.size(ofValue: deviceID))
 
-        let status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &size,
+            &deviceID
+        )
         return status == noErr ? deviceID : nil
     }
 
@@ -192,7 +380,9 @@ final class VolumeController {
     )
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let releasesURL = URL(string: "https://github.com/Katilla1/HoverVolume/releases/latest")!
+
     private enum UI {
         static let itemWidth = 28.0
         static let barWidth = 18.0
@@ -204,19 +394,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private let volumeController = VolumeController()
     private let statusItem = NSStatusBar.system.statusItem(withLength: UI.itemWidth)
-    private let volumeMenuItem = NSMenuItem(title: "Volume", action: nil, keyEquivalent: "")
     private let trackLayer = CALayer()
     private let fillLayer = CALayer()
     private let tickLayer = CALayer()
     private let tickImage = AppDelegate.makeTickPatternImage(width: 36, height: 6)
+    private let controlsPopover = NSPopover()
+    private let controlsViewController = MediaControlsViewController()
+
     private var globalScrollMonitor: Any?
     private var localScrollMonitor: Any?
     private var lastRenderedVolume: CGFloat = -1
     private var lastButtonBounds = CGRect.zero
+    private var lastAudibleVolume: Float32 = 0.35
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         setupStatusItem()
+        setupControlsPopover()
         installScrollMonitoring()
         volumeController.startObserving { [weak self] in
             self?.refreshUI(animated: true)
@@ -236,29 +430,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    func menuWillOpen(_ menu: NSMenu) {
-        refreshUI()
-    }
-
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+
+    @objc private func toggleControlsPopover() {
+        guard let button = statusItem.button else { return }
+
+        if controlsPopover.isShown {
+            controlsPopover.performClose(nil)
+            return
+        }
+
+        refreshUI()
+        controlsPopover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
     private func setupStatusItem() {
         guard let button = statusItem.button else { return }
 
         button.imagePosition = .imageOnly
-        button.toolTip = "Hover and scroll to change volume"
+        button.toolTip = "Scroll to change volume. Click for mute and media controls."
         button.wantsLayer = true
+        button.target = self
+        button.action = #selector(toggleControlsPopover)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         configureIndicator(in: button)
+    }
 
-        let menu = NSMenu()
-        menu.delegate = self
-        volumeMenuItem.isEnabled = false
-        menu.addItem(volumeMenuItem)
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit HoverVolume", action: #selector(quit), keyEquivalent: "q")
-        statusItem.menu = menu
+    private func setupControlsPopover() {
+        controlsViewController.onToggleMute = { [weak self] in
+            self?.toggleMute()
+        }
+        controlsViewController.onMediaCommand = { [weak self] command in
+            self?.sendMediaCommand(command)
+        }
+        controlsViewController.onCheckForUpdates = { [weak self] in
+            self?.checkForUpdates()
+        }
+        controlsViewController.onQuit = { [weak self] in
+            self?.quit()
+        }
+
+        controlsPopover.animates = true
+        controlsPopover.behavior = .transient
+        controlsPopover.contentViewController = controlsViewController
+        controlsPopover.contentSize = NSSize(width: 232, height: 148)
+    }
+
+    private func checkForUpdates() {
+        NSWorkspace.shared.open(Self.releasesURL)
     }
 
     private func installScrollMonitoring() {
@@ -274,7 +495,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @discardableResult
     private func handleScroll(_ event: NSEvent) -> Bool {
-        guard isMouseOverStatusItem() else { return false }
+        guard isPointerInInteractiveArea() else { return false }
         guard let delta = volumeDelta(for: event) else { return false }
         volumeController.changeVolume(by: delta)
         refreshUI(animated: true)
@@ -283,31 +504,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func volumeDelta(for event: NSEvent) -> Float32? {
         HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: event.scrollingDeltaX,
             scrollingDeltaY: event.scrollingDeltaY,
             hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
             momentumPhaseIsEmpty: event.momentumPhase.isEmpty
         )
     }
 
-    private func isMouseOverStatusItem() -> Bool {
+    private func isPointerInInteractiveArea() -> Bool {
+        let mouseLocation = NSEvent.mouseLocation
+
+        if statusItemFrame()?.contains(mouseLocation) == true {
+            return true
+        }
+
+        if controlsPopover.isShown,
+           let popoverFrame = controlsViewController.view.window?.frame,
+           popoverFrame.insetBy(dx: -6, dy: -6).contains(mouseLocation) {
+            return true
+        }
+
+        return false
+    }
+
+    private func statusItemFrame() -> CGRect? {
         guard
             let button = statusItem.button,
             let window = button.window
         else {
-            return false
+            return nil
         }
 
         let frameInWindow = button.convert(button.bounds, to: nil)
-        let frameOnScreen = window.convertToScreen(frameInWindow)
-        return frameOnScreen.contains(NSEvent.mouseLocation)
+        return window.convertToScreen(frameInWindow)
     }
 
     private func refreshUI(animated: Bool = false) {
         let volume = CGFloat(volumeController.volume ?? 0)
-        let percent = Int(round(volume * 100))
-        volumeMenuItem.title = "Volume \(percent)%"
+        let isMuted = volume <= 0.001
+
+        if !isMuted {
+            lastAudibleVolume = Float32(volume)
+        }
+
         statusItem.button?.image = speakerImage(for: volume)
         updateIndicator(for: volume, animated: animated)
+        controlsViewController.update(volume: volume, isMuted: isMuted)
+    }
+
+    private func toggleMute() {
+        guard let currentVolume = volumeController.volume else { return }
+
+        if currentVolume > 0.001 {
+            lastAudibleVolume = currentVolume
+            volumeController.setVolume(to: 0)
+        } else {
+            volumeController.setVolume(to: max(lastAudibleVolume, 0.05))
+        }
+
+        refreshUI(animated: true)
+    }
+
+    private func sendMediaCommand(_ command: MediaControlCommand) {
+        postMediaKey(command.mediaKey)
+    }
+
+    private func postMediaKey(_ key: Int32) {
+        for isKeyDown in [true, false] {
+            let keyState = isKeyDown ? 0xA : 0xB
+            let data1 = Int((key << 16) | (Int32(keyState) << 8))
+
+            guard let event = NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: NSEvent.ModifierFlags(rawValue: 0xA00),
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: data1,
+                data2: -1
+            )?.cgEvent else {
+                continue
+            }
+
+            event.post(tap: .cghidEventTap)
+        }
     }
 
     private func configureIndicator(in button: NSStatusBarButton) {

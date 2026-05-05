@@ -4,19 +4,32 @@ enum HoverVolumeLogic {
     static let maxTrackpadDeltaPerEvent: Float32 = 0.08
 
     static func volumeDelta(
+        scrollingDeltaX: Double,
         scrollingDeltaY: Double,
         hasPreciseScrollingDeltas: Bool,
         momentumPhaseIsEmpty: Bool
     ) -> Float32? {
-        guard abs(scrollingDeltaY) >= 0.01 else { return nil }
         guard momentumPhaseIsEmpty else { return nil }
 
+        let dominantDelta = dominantScrollDelta(
+            scrollingDeltaX: scrollingDeltaX,
+            scrollingDeltaY: scrollingDeltaY
+        )
+        guard abs(dominantDelta) >= 0.01 else { return nil }
+
         if hasPreciseScrollingDeltas {
-            let scaled = Float32(scrollingDeltaY) * trackpadDeltaScale
+            let scaled = Float32(dominantDelta) * trackpadDeltaScale
             return max(-maxTrackpadDeltaPerEvent, min(maxTrackpadDeltaPerEvent, scaled))
         }
 
-        return scrollingDeltaY > 0 ? wheelStep : -wheelStep
+        return dominantDelta > 0 ? wheelStep : -wheelStep
+    }
+
+    private static func dominantScrollDelta(
+        scrollingDeltaX: Double,
+        scrollingDeltaY: Double
+    ) -> Double {
+        abs(scrollingDeltaX) > abs(scrollingDeltaY) ? scrollingDeltaX : scrollingDeltaY
     }
 
     static func speakerSymbolName(for volume: Double) -> String {

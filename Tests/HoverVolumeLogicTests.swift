@@ -27,39 +27,91 @@ func expectClose(_ actual: Float32?, _ expected: Float32?, _ message: String) th
 
 func runTests() throws {
     try expectClose(
-        HoverVolumeLogic.volumeDelta(scrollingDeltaY: 12, hasPreciseScrollingDeltas: false, momentumPhaseIsEmpty: true),
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 0,
+            scrollingDeltaY: 12,
+            hasPreciseScrollingDeltas: false,
+            momentumPhaseIsEmpty: true
+        ),
         0.05,
         "Mouse wheel scroll up should use the fixed step"
     )
 
     try expectClose(
-        HoverVolumeLogic.volumeDelta(scrollingDeltaY: -12, hasPreciseScrollingDeltas: false, momentumPhaseIsEmpty: true),
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 0,
+            scrollingDeltaY: -12,
+            hasPreciseScrollingDeltas: false,
+            momentumPhaseIsEmpty: true
+        ),
         -0.05,
         "Mouse wheel scroll down should use the fixed step"
     )
 
     try expectClose(
-        HoverVolumeLogic.volumeDelta(scrollingDeltaY: 5, hasPreciseScrollingDeltas: true, momentumPhaseIsEmpty: true),
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 0,
+            scrollingDeltaY: 5,
+            hasPreciseScrollingDeltas: true,
+            momentumPhaseIsEmpty: true
+        ),
         0.02,
         "Trackpad delta should scale smoothly"
     )
 
     try expectClose(
-        HoverVolumeLogic.volumeDelta(scrollingDeltaY: 100, hasPreciseScrollingDeltas: true, momentumPhaseIsEmpty: true),
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 0,
+            scrollingDeltaY: 100,
+            hasPreciseScrollingDeltas: true,
+            momentumPhaseIsEmpty: true
+        ),
         0.08,
         "Trackpad delta should clamp at the configured maximum"
     )
 
     try expectEqual(
-        HoverVolumeLogic.volumeDelta(scrollingDeltaY: 2, hasPreciseScrollingDeltas: true, momentumPhaseIsEmpty: false),
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 0,
+            scrollingDeltaY: 2,
+            hasPreciseScrollingDeltas: true,
+            momentumPhaseIsEmpty: false
+        ),
         nil,
         "Momentum scrolling should be ignored"
     )
 
     try expectEqual(
-        HoverVolumeLogic.volumeDelta(scrollingDeltaY: 0.001, hasPreciseScrollingDeltas: true, momentumPhaseIsEmpty: true),
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 0,
+            scrollingDeltaY: 0.001,
+            hasPreciseScrollingDeltas: true,
+            momentumPhaseIsEmpty: true
+        ),
         nil,
         "Tiny scroll input should be ignored"
+    )
+
+    try expectClose(
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 6,
+            scrollingDeltaY: 2,
+            hasPreciseScrollingDeltas: true,
+            momentumPhaseIsEmpty: true
+        ),
+        0.024,
+        "Horizontal trackpad scrolling should also adjust volume"
+    )
+
+    try expectClose(
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: -10,
+            scrollingDeltaY: 0,
+            hasPreciseScrollingDeltas: false,
+            momentumPhaseIsEmpty: true
+        ),
+        -0.05,
+        "Horizontal wheel scrolling should use the fixed step when it is the active axis"
     )
 
     try expectEqual(
