@@ -99,8 +99,8 @@ func runTests() throws {
             hasPreciseScrollingDeltas: true,
             momentumPhaseIsEmpty: true
         ),
-        0.024,
-        "Horizontal trackpad scrolling should also adjust volume"
+        0.008,
+        "Default scrolling should prioritize vertical movement when both axes are active"
     )
 
     try expectClose(
@@ -111,7 +111,31 @@ func runTests() throws {
             momentumPhaseIsEmpty: true
         ),
         -0.05,
-        "Horizontal wheel scrolling should use the fixed step when it is the active axis"
+        "Default scrolling should still fall back to horizontal movement when vertical is inactive"
+    )
+
+    try expectEqual(
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 8,
+            scrollingDeltaY: 0,
+            hasPreciseScrollingDeltas: true,
+            momentumPhaseIsEmpty: true,
+            axisPreference: .verticalOnly
+        ),
+        nil,
+        "Vertical-only scrolling should ignore horizontal gestures"
+    )
+
+    try expectClose(
+        HoverVolumeLogic.volumeDelta(
+            scrollingDeltaX: 8,
+            scrollingDeltaY: 2,
+            hasPreciseScrollingDeltas: true,
+            momentumPhaseIsEmpty: true,
+            axisPreference: .anyDirection
+        ),
+        0.032,
+        "Any-direction scrolling should use the dominant axis"
     )
 
     try expectEqual(
@@ -136,6 +160,27 @@ func runTests() throws {
         HoverVolumeLogic.speakerSymbolName(for: 0.9),
         "speaker.wave.3.fill",
         "High volume should show the full wave icon"
+    )
+
+    try expectEqual(
+        HoverVolumeLogic.normalizedVersionString("v1.2.3"),
+        "1.2.3",
+        "Version normalization should drop a leading v prefix"
+    )
+
+    try expect(
+        HoverVolumeLogic.isVersion("v1.2.0", newerThan: "1.1.9"),
+        "A higher GitHub tag should be considered newer than the current app version"
+    )
+
+    try expect(
+        !HoverVolumeLogic.isVersion("1.1.0", newerThan: "1.1.0"),
+        "Equal versions should not be considered updates"
+    )
+
+    try expect(
+        !HoverVolumeLogic.isVersion("1.0.9", newerThan: "1.1.0"),
+        "Older versions should not be considered updates"
     )
 }
 

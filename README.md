@@ -1,6 +1,6 @@
 # HoverVolume
 
-Small macOS menu bar app that lets you hover the speaker icon and scroll to change system volume, then click for quick mute and media controls.
+Small macOS menu bar app that lets you hover the speaker icon and scroll to change system volume, then click for quick mute, media controls, and preferences.
 
 ## What It Does
 
@@ -9,9 +9,11 @@ HoverVolume adds its own compact speaker icon to the macOS menu bar. Move your p
 ## Features
 
 - Scroll on hover to change system volume
-- Supports both vertical and horizontal trackpad scrolling
+- Vertical-only, vertical-priority, or any-direction scroll behavior
 - Click the icon for mute or unmute and media transport controls
-- Manual `Check for Updates` button that opens the latest GitHub release
+- Direct playback control for Music and Spotify, with media-key fallback
+- Preferences panel for scroll settings, permissions, and updates
+- Automatic GitHub release checking with optional in-app installation
 - Keep scrolling to change volume even while the control popover is open
 - Thin animated level bar under the icon
 - Native AppKit app in a single Swift source file
@@ -24,9 +26,9 @@ HoverVolume adds its own compact speaker icon to the macOS menu bar. Move your p
 1. Launch `HoverVolume.app`.
 2. Find the speaker icon in the top-right menu bar.
 3. Hover your mouse or trackpad pointer over the icon.
-4. Scroll up, down, left, or right to change volume.
+4. Scroll to change volume. By default, vertical movement is prioritized.
 5. Click the icon to open the control popover.
-6. Use the mute button, media buttons, or `Check for Updates`, or keep scrolling while the popover is open.
+6. Use the mute button, media buttons, preferences, or update actions, or keep scrolling while the popover is open.
 7. Use the quit button in the popover when you want to exit the app.
 
 If you do not see the icon, macOS may have placed it in the menu bar overflow area because there are too many visible menu bar items.
@@ -41,9 +43,12 @@ Use the Releases page here:
 
 `https://github.com/Katilla1/HoverVolume/releases/latest`
 
+If you fork, rename, or transfer this project, update `HoverVolumeGitHubOwner` and
+`HoverVolumeGitHubRepository` in `Info.plist` so the in-app updater and release links keep working.
+
 Do not use the green `Code` button if you want the app itself. That download is only the source code.
 
-On first launch, macOS may ask you to confirm that you want to open it.
+On first launch, macOS may ask you to confirm that you want to open it. If you use the media buttons, macOS may also ask for Automation access to control Music or Spotify, and Accessibility access if the app needs to fall back to generic media-key events.
 
 ## Compatibility
 
@@ -81,4 +86,5 @@ Because this project currently uses ad-hoc signing, some users may need to right
 ## Notes
 
 - HoverVolume uses its own menu bar icon. It cannot attach this behavior to Apple's built-in Control Center volume control.
+- The menu bar icon size is fixed to keep it aligned with native menu extras.
 - The built app bundle and local build cache are ignored by Git.
